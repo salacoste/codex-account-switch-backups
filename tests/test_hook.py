@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 from codex_account_manager.main import app
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 runner = CliRunner()
 
@@ -61,13 +61,12 @@ def test_hook_read_error(tmp_path):
     
     with patch("codex_account_manager.commands.hook.find_local_config") as mock_find:
         # Mock returned path behaves like Path but raises on read_text
-        mock_path = patch("pathlib.Path").start()
-        mock_path.read_text.side_effect = Exception("Read fail")
+        mock_path_obj = MagicMock()
+        mock_path_obj.read_text.side_effect = Exception("Read fail")
         
-        mock_find.return_value = mock_path
+        mock_find.return_value = mock_path_obj
         
         result = runner.invoke(app, ["hook", "--path", str(tmp_path)])
         
         assert result.exit_code == 1
-        mock_path.read_text.assert_called_once()
-        patch.stopall()
+        mock_path_obj.read_text.assert_called_once()
