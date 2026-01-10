@@ -249,7 +249,8 @@ class ConfigManager:
         if account.email:
             data["email"] = account.email
         if account.tokens:
-            # Flatten tokens to top-level for legacy consumers
+            # Preserve nested structure for legacy consumers/tests, and also flatten for convenience.
+            data["tokens"] = account.tokens
             data.update(account.tokens)
             
         # Ensure last_refresh is present to satisfy Codex CLI
