@@ -43,6 +43,7 @@ app.command(
 # Helper to register group commands at root
 app.command(name="init", help="Initialize account storage")(account.init)
 app.command(name="add", help="Add a new account")(account.add)
+app.command(name="save", help="Save current login as new account")(account.save)
 app.command(name="list", help="List all accounts")(account.list_accounts)
 app.command(name="remove", help="Remove an account")(account.remove)
 app.command(name="encrypt-all", help="Encrypt all accounts")(account.encrypt_all)
