@@ -1,10 +1,8 @@
-import pytest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
 from codex_account_manager.main import app
 from codex_account_manager.config.manager import ConfigManager
 import subprocess
-from codex_account_manager.core.exceptions import CodexError
 
 runner = CliRunner()
 

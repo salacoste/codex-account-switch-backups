@@ -1,6 +1,9 @@
 import pytest
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.config.models import Account, Config
+from unittest.mock import patch, MagicMock
+from codex_account_manager.core.vault import Vault
+from codex_account_manager.core.crypto import EncryptionManager
 
 def test_personal_vault_default(tmp_path):
     """Verify default behavior is personal vault."""
@@ -82,9 +85,6 @@ def test_cross_vault_switching(tmp_path):
     active = mgr.get_account("t1/a1")
     assert active.api_key == "k2"
 
-from unittest.mock import patch, MagicMock
-from codex_account_manager.core.vault import Vault
-from codex_account_manager.core.crypto import EncryptionManager
 
 def test_vault_missing_dir(tmp_path):
     """Verify list returns empty if dir missing."""
@@ -147,7 +147,6 @@ def test_vault_save_store_error(tmp_path):
     
     with patch("codex_account_manager.core.vault.atomic_write", side_effect=ValueError("WriteFail")):
         import pytest
-        from codex_account_manager.core.exceptions import ConfigError # Vault raises ConfigError wrap?
         # Actually save_account doesn't catch exception in Vault. 
         # But ConfigManager might caught it? 
         # Vault.save_account doesn't wrap "atomic_write" in try/except.

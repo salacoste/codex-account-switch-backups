@@ -2,6 +2,7 @@ import zipfile
 from unittest.mock import patch
 from typer.testing import CliRunner
 from codex_account_manager.main import app
+from pathlib import Path
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.config.models import Account
 
@@ -118,7 +119,6 @@ def test_import_collision_skip(tmp_path):
     # We rely on 'Skipped' log to simulate verification, as verifying content is hard with real encryption
     pass
 
-from pathlib import Path
 
 def test_export_default_path(tmp_path):
     """Verify export uses timestamped default name."""

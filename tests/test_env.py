@@ -2,7 +2,7 @@ from typer.testing import CliRunner
 from codex_account_manager.main import app
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.config.models import Account, Config
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 runner = CliRunner()
 

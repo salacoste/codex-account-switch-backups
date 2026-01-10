@@ -2,7 +2,7 @@ from typer.testing import CliRunner
 from codex_account_manager.main import app
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.config.models import Account
-from codex_account_manager.core.exceptions import ConfigError, AccountNotFoundError, CodexError
+from codex_account_manager.core.exceptions import CodexError
 from unittest.mock import patch
 
 runner = CliRunner()

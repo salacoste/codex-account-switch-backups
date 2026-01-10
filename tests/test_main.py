@@ -1,6 +1,5 @@
-import sys
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from typer.testing import CliRunner
 from codex_account_manager.main import app, main
 from codex_account_manager.core.exceptions import CodexError

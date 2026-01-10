@@ -1,6 +1,7 @@
 from typer.testing import CliRunner
 from unittest.mock import patch
 from codex_account_manager.main import app
+from codex_account_manager.core.exceptions import CodexError
 from codex_account_manager.config.models import Account
 
 runner = CliRunner()
@@ -69,7 +70,6 @@ def test_tui_cancellation(MockMgr, MockQuestionary, mock_config):
     assert result.exit_code == 0
     mgr.switch_account.assert_not_called()
 
-from codex_account_manager.core.exceptions import CodexError
 
 @patch("codex_account_manager.commands.tui.questionary")
 @patch("codex_account_manager.commands.tui.ConfigManager")

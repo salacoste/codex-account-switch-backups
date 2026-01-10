@@ -2,7 +2,7 @@ from typer.testing import CliRunner
 from unittest.mock import patch
 from codex_account_manager.main import app
 from codex_account_manager.config.models import Account
-from codex_account_manager.core.exceptions import AccountNotFoundError
+from codex_account_manager.core.exceptions import AccountNotFoundError, CodexError
 
 runner = CliRunner()
 
@@ -108,7 +108,6 @@ def test_migrate_dry_run(MockMgr, MockIngest, mock_config, tmp_path):
     
     mgr_instance.save_account.assert_not_called()
 
-from codex_account_manager.core.exceptions import CodexError
 
 @patch("codex_account_manager.commands.migrate.LegacyIngestor")
 @patch("codex_account_manager.commands.migrate.ConfigManager")

@@ -69,7 +69,7 @@ def test_audit_default_init():
 def test_ensure_dir_creation(tmp_path):
     """Verify directory creation."""
     log_dir = tmp_path / "deep" / "nested"
-    audit = AuditManager(root_path=log_dir)
+    _audit = AuditManager(root_path=log_dir)
     assert log_dir.exists()
 
 def test_log_write_failure(tmp_path):

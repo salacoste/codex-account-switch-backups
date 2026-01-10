@@ -168,7 +168,7 @@ def test_team_vault_logic(temp_home):
     
     # Encrypt a key for the team
     primary_cm = ConfigManager(root_path=temp_home)
-    team_key = "secret_key_12345678901234567890" # Not real Fernet, just string for mock?
+    # team_key = ...
     # Actually code decrypts bytes.fromhex(cipher_key) then decrypts
     # We should stick to mocking decrypt for simplicity, or do full crypto cycle.
     # Let's mock decrypt to return a valid fernet key string.

@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 from cryptography.fernet import Fernet
@@ -6,7 +5,6 @@ from typer.testing import CliRunner
 from codex_account_manager.main import app
 from codex_account_manager.config.manager import ConfigManager
 import subprocess
-import shutil
 
 runner = CliRunner()
 

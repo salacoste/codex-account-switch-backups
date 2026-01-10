@@ -1,5 +1,6 @@
 from typer.testing import CliRunner
 from codex_account_manager.main import app
+from unittest.mock import patch
 
 runner = CliRunner()
 
@@ -52,7 +53,6 @@ def test_hook_empty_file(tmp_path):
     # Our logic says exit 1 if not found OR empty
     assert result.exit_code == 1
 
-from unittest.mock import patch
 
 def test_hook_read_error(tmp_path):
     """Verify exception during read is treated as not found."""

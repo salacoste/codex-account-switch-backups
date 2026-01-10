@@ -2,7 +2,7 @@ import pytest
 from codex_account_manager.core.crypto import EncryptionManager
 from codex_account_manager.core.exceptions import CodexError
 from cryptography.fernet import Fernet
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 
 @pytest.fixture
@@ -109,7 +109,7 @@ def test_encrypt_no_key_failure(temp_key_path, mock_keyring):
     # But ensure_key sets self._cipher.
     # Maybe we mock ensure_key?
     
-    with patch.object(manager, "ensure_key") as mock_ensure:
+    with patch.object(manager, "ensure_key"):
         # If ensure_key does nothing
         with pytest.raises(CodexError, match="Encryption key could not be loaded"):
             manager.encrypt("test")
