@@ -1,15 +1,151 @@
 import typer
+import questionary
 from typing import Optional, List
 from rich.table import Table
 import json
 import os
 from pathlib import Path
 from codex_account_manager.config.manager import ConfigManager, LEGACY_AUTH_FILE
-from codex_account_manager.config.models import Account
+from codex_account_manager.config.models import Account, AccountType
 from codex_account_manager.core.output import OutputManager
 from codex_account_manager.core.exceptions import CodexError
+from codex_account_manager.commands.auth import DeviceAuth
 
 app = typer.Typer(help="Manage Codex accounts (add, list, remove).")
+
+@app.command("login")
+def login(ctx: typer.Context):
+    """
+    Interactive login menu: Switch accounts or Add New via Browser.
+    """
+    output: OutputManager = ctx.obj
+    mgr = ConfigManager()
+    
+    # 1. Prepare Menu Options
+    try:
+        accounts = mgr.list_accounts()
+    except CodexError:
+        accounts = []
+        
+    choices = ["➕ Add New Account"]
+    
+    # Add existing accounts to menu
+    # Format: "name (active)" if active, else "name"
+    active_slug = mgr.load_config().active_account
+    
+    account_map = {} # Display Name -> Real Slug
+    
+    for acc in accounts:
+        display = acc.name
+        if acc.name == active_slug:
+            display = f"{acc.name} (active)"
+        
+        # Add icons based on type
+        if hasattr(acc, 'type'):
+             if acc.type == AccountType.API_KEY:
+                 display = f"🔑 {display}"
+             elif acc.type == AccountType.OAUTH:
+                 display = f"👤 {display}"
+
+        choices.append(display)
+        account_map[display] = acc.name
+
+    # 2. Show Menu
+    selection = questionary.select(
+        "Select an account to log in:",
+        choices=choices
+    ).ask()
+    
+    if not selection:
+        raise typer.Exit(code=0) # Cancelled
+        
+    # 3. Handle "Add New"
+    if selection == "➕ Add New Account":
+        _handle_new_login(output, mgr)
+        return
+
+    # 4. Handle Switch
+    target_slug = account_map[selection]
+    if target_slug == active_slug:
+        output.success(f"Already logged in to '{target_slug}'.")
+        return
+        
+    try:
+        mgr.switch_account(target_slug)
+        output.success(f"Switched to account '{target_slug}'.")
+    except CodexError as e:
+        output.error(e.message)
+        raise typer.Exit(code=1)
+
+def _handle_new_login(output: OutputManager, mgr: ConfigManager):
+    """
+    Orchestrates the Device Flow login and saving.
+    """
+    auth = DeviceAuth()
+    
+    # 1. Initiate
+    try:
+        output.log("[bold cyan]Initiating browser login...[/bold cyan]")
+        flow_data = auth.initiate_flow()
+    except CodexError as e:
+        output.error(f"Could not start login: {e}")
+        raise typer.Exit(code=1)
+        
+    # 2. Display Instructions
+    output.console.print("\n[bold yellow]Please complete the login in your browser:[/bold yellow]")
+    output.console.print(f"URL:  [link={flow_data['verification_uri']}]{flow_data['verification_uri']}[/link]")
+    output.console.print(f"Code: [bold green]{flow_data['user_code']}[/bold green]\n")
+    
+    # 3. Poll
+    with output.console.status("Waiting for authorization..."):
+        try:
+            tokens = auth.poll_for_token(
+                flow_data['device_code'], 
+                interval=flow_data['interval']
+            )
+        except CodexError as e:
+            output.error(str(e))
+            raise typer.Exit(code=1)
+            
+    output.success("Authentication successful!")
+    
+    # 4. Identify User
+    try:
+        user_info = auth.get_user_info(tokens['access_token'])
+        email = user_info.get("email")
+        if not email:
+            email = typer.prompt("Could not detect email. Please enter a name for this account")
+    except CodexError:
+        email = typer.prompt("Failed to fetch profile. Enter name/email for account")
+
+    # 5. Save
+    # Propose default name from email
+    default_name = email.split("@")[0]
+    name = typer.prompt("Save account as", default=default_name)
+    
+    # Construct Account
+    # We map OIDC tokens to our internal structure
+    # Tokens dict from Auth0 usually has access_token, refresh_token, id_token, expires_in key
+    
+    account = Account(
+        name=name,
+        email=email,
+        type=AccountType.OAUTH,
+        tokens=tokens, # Save full blob
+        tags=["oauth"]
+    )
+    
+    try:
+        mgr.save_account(account)
+        output.success(f"Account '{name}' saved and encrypted.")
+        
+        # Auto-switch
+        mgr.switch_account(name)
+        output.success(f"Switched to '{name}'. You are ready to go!")
+        
+    except CodexError as e:
+        output.error(f"Failed to save account: {e.message}")
+        raise typer.Exit(code=1)
 
 @app.command("init")
 def init(ctx: typer.Context):
