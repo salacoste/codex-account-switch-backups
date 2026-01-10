@@ -132,7 +132,10 @@ def test_migrate_source_missing(tmp_path):
     missing = tmp_path / "ghost"
     result = runner.invoke(app, ["migrate", "--from", str(missing)])
     assert result.exit_code == 1
-    assert "does not exist" in  f"{result.stdout} {result.stderr}"
+    import re
+    output = f"{result.stdout} {result.stderr}"
+    normalized_output = re.sub(r'\s+', ' ', output)
+    assert "does not exist" in normalized_output
 
 @patch("codex_account_manager.commands.migrate.LegacyIngestor")
 @patch("codex_account_manager.commands.migrate.ConfigManager")
