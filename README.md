@@ -1,5 +1,10 @@
 # Codex Account Manager
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Security: AES-256](https://img.shields.io/badge/Security-AES--256-green)](SECURITY.md)
+
 A secure CLI tool for managing multiple Codex accounts and safely switching authentication contexts.  
 Developed to separate production credentials from test environments and simplify multi-account workflows.
 
@@ -12,6 +17,7 @@ Developed to separate production credentials from test environments and simplify
 *   **Audit Logging**: Track every key access for security and compliance.
 *   **Legacy Migration**: Auto-import accounts from old project structures.
 *   **Rich Output**: Beautiful terminal output with masking for sensitive data.
+*   **Team Vaults**: Securely share credentials via encrypted git repositories.
 
 📖 **[Read the Full User Guide](docs/USER_GUIDE.md)** for detailed instructions.
 
@@ -112,12 +118,21 @@ function chpwd() {
 poetry run pytest
 ```
 
-### Project Structure
-*   `src/codex_account_manager`: Source code.
 *   `tests/`: Pytest suite (covers functionality, config security, migration).
+
+## 🤝 Community & Support
+
+*   **Bug Reports**: [Open an Issue](.github/ISSUE_TEMPLATE/bug_report.yml)
+*   **Feature Requests**: [Request a Feature](.github/ISSUE_TEMPLATE/feature_request.yml)
+*   **Security**: See [Security Policy](SECURITY.md) for reporting vulnerabilities.
+*   **Contributing**: See [Contribution Guidelines](CONTRIBUTING.md).
+*   **Code of Conduct**: See [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## 🔒 Security Note
 This tool manages sensitive API keys.
 *   Storage is rooted at `~/.codex-accounts/`.
 *   Files are readable **only by the user** (0600).
 *   Avoid running as root.
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).
