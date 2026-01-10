@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Tuple
 from pydantic import ValidationError
@@ -15,7 +17,16 @@ from codex_account_manager.core.audit import AuditManager
 from codex_account_manager.core.vault import Vault
 
 DEFAULT_CONFIG_ROOT = Path.home() / ".codex-accounts"
-LEGACY_AUTH_FILE = Path.home() / ".codex" / "auth.json"
+# NOTE: Keep this patchable in tests and runtime-expand "~" so that monkeypatching
+# HOME works even if this module was imported before the env var change.
+LEGACY_AUTH_FILE = "~/.codex/auth.json"
+
+
+def _resolve_legacy_auth_file() -> Path:
+    legacy_auth_file = LEGACY_AUTH_FILE
+    if isinstance(legacy_auth_file, Path):
+        return legacy_auth_file
+    return Path(os.path.expanduser(str(legacy_auth_file)))
 
 
 class ConfigManager:
@@ -52,6 +63,18 @@ class ConfigManager:
         # Team Vaults
         for mount_slug, mount_path_str in self.config.mounts.items():
             self._mount_vault(mount_slug, Path(mount_path_str))
+
+    def _get_legacy_auth_file(self) -> Path:
+        env_override = os.environ.get("CODEX_LEGACY_AUTH_FILE")
+        if env_override:
+            return Path(env_override).expanduser()
+
+        # If the caller chose a non-default storage root and didn't override the legacy auth path,
+        # keep all side-effects confined to that root (important for tests/sandboxed runs).
+        if self.root != DEFAULT_CONFIG_ROOT and str(LEGACY_AUTH_FILE) == "~/.codex/auth.json":
+            return self.root / ".codex" / "auth.json"
+
+        return _resolve_legacy_auth_file()
 
     def _ensure_storage(self):
         """Creates basic directory structure."""
@@ -213,21 +236,36 @@ class ConfigManager:
         # This logic used to be implicit in `list` or `status` checks.
         # Implementing explicit sync here.
         
-        legacy_dir = LEGACY_AUTH_FILE.parent
+        legacy_auth_file = self._get_legacy_auth_file()
+        legacy_dir = legacy_auth_file.parent
         legacy_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create legacy structure
-        data = {
-            "api_key": account.api_key,
-            "email": account.email,
-        }
+        data = {}
+        if account.api_key:
+            # Primary key used by this project/tests
+            data["api_key"] = account.api_key
+            # Compatibility for other tooling
+            data["OPENAI_API_KEY"] = account.api_key
+        if account.email:
+            data["email"] = account.email
         if account.tokens:
+            # Flatten tokens to top-level for legacy consumers
             data.update(account.tokens)
             
-        with atomic_write(LEGACY_AUTH_FILE) as f:
+        # Ensure last_refresh is present to satisfy Codex CLI
+        data["last_refresh"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            
+        with atomic_write(legacy_auth_file) as f:
             f.write(json.dumps(data, indent=2))
         
-        os.chmod(LEGACY_AUTH_FILE, 0o600)
+        
+        # Clear sessions to prevent "Token data not available" error
+        sessions_dir = legacy_dir / "sessions"
+        if sessions_dir.exists():
+            shutil.rmtree(sessions_dir)
+            sessions_dir.mkdir()  # Recreate empty
+        
+        os.chmod(legacy_auth_file, 0o600)
 
     def check_active_integrity(self) -> Dict[str, bool]:
         """Verifies the health of the active account."""
@@ -241,18 +279,31 @@ class ConfigManager:
             exists = True
         except Exception:
             exists = False
-            return {"exists": False, "synced": False, "legacy_exists": LEGACY_AUTH_FILE.exists()}
+            legacy_auth_file = self._get_legacy_auth_file()
+            return {"exists": False, "synced": False, "legacy_exists": legacy_auth_file.exists()}
 
-        legacy_exists = LEGACY_AUTH_FILE.exists()
+        legacy_auth_file = self._get_legacy_auth_file()
+        legacy_exists = legacy_auth_file.exists()
         synced = False
         
         if legacy_exists:
             try:
-                with open(LEGACY_AUTH_FILE, "r") as f:
+                with open(legacy_auth_file, "r") as f:
                     legacy_data = json.load(f)
                     
-                # Strict check on critical fields
-                synced = (legacy_data.get("api_key") == acc.api_key)
+                last_refresh_present = "last_refresh" in legacy_data
+
+                legacy_api_key = legacy_data.get("api_key") or legacy_data.get("OPENAI_API_KEY")
+                legacy_tokens = legacy_data.get("tokens") or {}
+                if not legacy_tokens and acc.tokens:
+                    legacy_tokens = {k: legacy_data.get(k) for k in acc.tokens.keys() if k in legacy_data}
+
+                if acc.api_key:
+                    synced = (legacy_api_key == acc.api_key) and last_refresh_present
+                elif acc.tokens:
+                    synced = (legacy_tokens == acc.tokens) and last_refresh_present
+                else:
+                    synced = last_refresh_present
             except Exception:
                 synced = False
                 
@@ -261,4 +312,3 @@ class ConfigManager:
             "synced": synced,
             "legacy_exists": legacy_exists
         }
-

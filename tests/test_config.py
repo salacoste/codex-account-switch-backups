@@ -145,7 +145,7 @@ def test_sync_legacy_tokens(temp_home):
         cm.switch_account("token-acc")
         
         auth = json.loads((temp_home / ".codex" / "auth.json").read_text())
-        assert auth["access_token"] == "t"
+        assert auth["tokens"]["access_token"] == "t"
 
 def test_legacy_accounts_dir_property(temp_home):
     """Verify legacy accounts_dir property."""

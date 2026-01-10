@@ -3,6 +3,12 @@ import shutil
 import tempfile
 from pathlib import Path
 
+@pytest.fixture(autouse=True)
+def isolate_home(monkeypatch, temp_home):
+    """Prevent tests from reading/writing real user home."""
+    monkeypatch.setenv("HOME", str(temp_home))
+    monkeypatch.setenv("USERPROFILE", str(temp_home))
+
 @pytest.fixture
 def temp_home():
     """Create a temporary home directory for testing."""

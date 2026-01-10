@@ -49,7 +49,7 @@ def test_switch_account_success(mock_config):
             import json
             with open(fake_legacy_path) as f:
                 data = json.load(f)
-                assert data["api_key"] == "sk-new"
+                assert data["OPENAI_API_KEY"] == "sk-new"
                 assert data["email"] == "new@test.com"
 
 def test_switch_non_existent(mock_config):
@@ -121,7 +121,7 @@ def test_status_checks_integrity_desync(mock_config):
     # Manually write divergent legacy file
     import json
     with open(fake_legacy, "w") as f:
-        json.dump({"api_key": "k2_mismatch", "email": "d"}, f)
+        json.dump({"OPENAI_API_KEY": "k2_mismatch", "email": "d", "last_refresh": "2000-01-01T00:00:00Z"}, f)
         
     cfg = cm.load_config()
     cfg.active_account = "desync"
