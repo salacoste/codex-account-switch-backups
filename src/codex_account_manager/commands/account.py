@@ -1,7 +1,10 @@
 import typer
 from typing import Optional, List
 from rich.table import Table
-from codex_account_manager.config.manager import ConfigManager
+import json
+import os
+from pathlib import Path
+from codex_account_manager.config.manager import ConfigManager, LEGACY_AUTH_FILE
 from codex_account_manager.config.models import Account
 from codex_account_manager.core.output import OutputManager
 from codex_account_manager.core.exceptions import CodexError
@@ -79,6 +82,76 @@ def add(
         output.success(f"Account '{account.name}' added successfully.")
     except CodexError as e:
         output.error(e.message)
+        raise typer.Exit(code=1)
+
+@app.command("save")
+def save(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Name for the new account"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing"),
+):
+    """
+    Save the currently logged-in state (from ~/.codex/auth.json) as a new account.
+    """
+    output: OutputManager = ctx.obj
+    mgr = ConfigManager()
+
+    # Determine auth file path
+    legacy_path = Path(os.path.expanduser(str(LEGACY_AUTH_FILE)))
+    
+    if not legacy_path.exists():
+        output.error(f"No auth file found at {legacy_path}. Please login locally first.")
+        raise typer.Exit(code=1)
+
+    try:
+        with open(legacy_path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        output.error(f"Auth file at {legacy_path} is corrupted.")
+        raise typer.Exit(code=1)
+
+    # Extract credentials
+    api_key = data.get("api_key") or data.get("OPENAI_API_KEY")
+    tokens = data.get("tokens")
+    email = data.get("email")
+
+    if not api_key and not tokens:
+        if "access_token" in data:
+            tokens = {
+                "access_token": data["access_token"],
+                "refresh_token": data.get("refresh_token"),
+                "id_token": data.get("id_token"),
+                "expires_at": data.get("expires_at"),
+            }
+            tokens = {k: v for k, v in tokens.items() if v is not None}
+
+    if not api_key and not tokens:
+        output.error("No valid credentials found in auth file.")
+        raise typer.Exit(code=1)
+
+    # Check existence
+    try:
+        existing = mgr.get_account(name)
+        if existing and not force:
+            output.error(f"Account '{name}' already exists. Use --force to overwrite.")
+            raise typer.Exit(code=1)
+    except CodexError:
+        pass
+
+    # Create & Save
+    account = Account(
+        name=name, 
+        email=email, 
+        api_key=api_key, 
+        tokens=tokens,
+        tags=[]
+    )
+
+    try:
+        mgr.save_account(account)
+        output.success(f"Saved current session as account '{name}'.")
+    except CodexError as e:
+        output.error(f"Failed to save account: {e.message}")
         raise typer.Exit(code=1)
 
 @app.command("list")
