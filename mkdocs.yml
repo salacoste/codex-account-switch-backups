@@ -1,8 +1,8 @@
 site_name: Codex Account Manager
 site_description: Secure CLI tool for managing multiple Codex accounts with safe context switching.
-site_url: https://my-org.github.io/codex-account-manager/
-repo_url: https://github.com/my-org/codex-account-manager
-repo_name: my-org/codex-account-manager
+site_url: https://salacoste.github.io/codex-account-switch-backups/
+repo_url: https://github.com/salacoste/codex-account-switch-backups
+repo_name: salacoste/codex-account-switch-backups
 edit_uri: edit/main/docs/
 
 theme:
