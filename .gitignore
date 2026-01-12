@@ -13,3 +13,9 @@ build/
 _bmad-output/
 *.spec
 src-tauri/target/
+node_modules/
+dist/
+coverage/
+.next/
+apps/web/.next/
+apps/web/node_modules/
