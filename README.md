@@ -5,111 +5,95 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Security: AES-256](https://img.shields.io/badge/Security-AES--256-green)](SECURITY.md)
 
-A secure CLI tool for managing multiple Codex accounts and safely switching authentication contexts.  
-Developed to separate production credentials from test environments and simplify multi-account workflows.
+> **The Professional's Choice for Secure Multi-Account Management.**  
+> Stop juggling API keys in plaintext files. Switch identities instantly, securely, and confidently.
+
+---
+
+## 🛑 The Problem
+
+Modern development involves juggling dozens of API keys, tokens, and environments.
+*   **Security Risks**: Leaving API keys in `.env` files or hardcoded in scripts leads to leaks.
+*   **Context Errors**: Accidentally running a destructive command against `production` because you forgot to switch variables.
+*   **Workflow Friction**: Manually copying and pasting tokens between terminals breaks flow.
+
+## ✅ The Solution
+
+**Codex Account Manager** is your secure, encrypted vault for professional identity management. It separates your credentials from your code, handles the complexity of secure storage, and injects authentication exactly where it's needed—on demand.
+
+### Why Codex Account Manager?
+
+🛡️ **Military-Grade Security**  
+Your credentials are never stored in plaintext. We use **AES-256 encryption** with industry-standard key derivation. Files are strictly permission-locked (`chmod 600`), ensuring only *you* have access.
+
+⚡ **Lightning-Fast Context Switching**  
+Switching from "Personal Dev" to "Corporate Prod" takes one command. The CLI instantly updates your authentication context, so every subsequent tool uses the correct identity.
+
+🧠 **Smart & Context Aware**  
+Stop guessing "Am I in prod?". Link directories to specific accounts. When you `cd` into your work project, the manager automatically switches your identity for you.
+
+🤝 **Built for Teams**  
+Securely share credentials with your team without using insecure channels like Slack or Email. Synchronize encrypted vaults via private Git repositories.
+
+📊 **Usage Tracking & Quotas**  
+Stay on top of your consumption. The CLI tracks your API usage against 5h and Weekly limits, displaying progress bars so you never hit a rate limit unexpectedly.
+
+---
 
 ## 🚀 Features
 
-*   **Secure Storage**: Credentials stored encrypted (AES-256) with `chmod 600`.
-*   **Universal Proxy**: Inject credentials into any command (`codex-account run`) without exports.
-*   **Git Sync**: Synchronize your vault across machines using a private Git repo.
-*   **Context Awareness**: Auto-switch identities based on directory or session.
-*   **Audit Logging**: Track every key access for security and compliance.
-*   **Legacy Migration**: Auto-import accounts from old project structures.
-*   **Rich Output**: Beautiful terminal output with masking for sensitive data.
-*   **Team Vaults**: Securely share credentials via encrypted git repositories.
+*   **Universal Proxy**: Inject credentials into any command (`codex-account run -- python script.py`) without polluting your global environment.
+*   **Audit Logging**: Every access is logged locally. Know exactly when and which key was used.
+*   **Legacy Migration**: Effortlessly import accounts from older project structures or backups.
+*   **Terminal UI**: Forget the names? Browse your vault with a beautiful interactive TUI.
+*   **Git Sync**: Keep your encrypted vault synchronized across all your devices using any private Git repo.
 
-📖 **[Read the Full User Guide](docs/USER_GUIDE.md)** for detailed instructions.
+---
+
+## 📖 Documentation
+
+Visit our full documentation site for detailed guides:
+👉 **[User Guide & Documentation](https://salacoste.github.io/codex-account-switch-backups/)**
+
+---
 
 ## 📦 Installation
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/salacoste/codex-account-switch-backups.git
 cd codex-account-manager
 
 # Install with Poetry
 poetry install
-
-# Activate shell
 poetry shell
 ```
 
-## 🛠️ Usage
+## 🛠️ Quick Start
 
-### 1. Initialization
-First, initialize the secure storage directory (`~/.codex-accounts`).
+**1. Initialize your vault**
 ```bash
 codex-account init
 ```
 
-### 2. Add an Account
-You can add accounts interactively or via flags.
+**2. Add your first account**
 ```bash
-# Interactive Wizard
-codex-account add
-
-# One-liner
-codex-account add work-production --email dev@corp.com --api-key sk-prod-123
+codex-account add work-prod --email me@corp.com --api-key sk-secure-123
 ```
 
-### 3. List Accounts
-View all managed accounts. API keys are masked by default.
+**3. Switch Context**
+```bash
+codex-account switch work-prod
+# You are now authenticated as 'work-prod'
+```
+
+**4. Check Status & Usage**
 ```bash
 codex-account list
-
-# Show full details (Use with caution!)
-codex-account list --show-secrets
-
-# JSON output for scripting
-codex-account list --json
+# Shows: Active | Name | Type | Usage (5h/W) | Tags
 ```
 
-### 4. Switch Context
-Activate an account. This updates `~/.codex/auth.json` so the Codex CLI uses these credentials.
-```bash
-codex-account switch work-production
-
-# Verify status
-codex-account status
-```
-
-### 5. Migration
-Import accounts from the legacy backups folder.
-```bash
-codex-account migrate --from ../old-project
-```
-
-### 6. Interactive Mode (TUI)
-Browse and select accounts using arrow keys.
-```bash
-codex-account tui
-# or alias
-codex-account interactive
-```
-
-### 7. Organization
-Tag accounts and filter lists.
-```bash
-# Add with tags
-codex-account add dev-account --tag work --tag v2
-
-# Filter list
-codex-account list --tag work
-```
-
-### 8. Shell Integration (Auto-Switch)
-Detect `.codex-account` files in directories and auto-switch.
-Add this to your `.zshrc` or `.bashrc`:
-```bash
-# Example ZSH hook
-function chpwd() {
-    if codex-account hook &> /dev/null; then
-        target=$(codex-account hook)
-        codex-account switch "$target"
-    fi
-}
-```
+---
 
 ## 🧪 Development
 
@@ -117,22 +101,21 @@ function chpwd() {
 ```bash
 poetry run pytest
 ```
-
-*   `tests/`: Pytest suite (covers functionality, config security, migration).
+*   `tests/`: Comprehensive Pytest suite covering security, functionality, and migration.
 
 ## 🤝 Community & Support
 
 *   **Bug Reports**: [Open an Issue](.github/ISSUE_TEMPLATE/bug_report.yml)
 *   **Feature Requests**: [Request a Feature](.github/ISSUE_TEMPLATE/feature_request.yml)
-*   **Security**: See [Security Policy](SECURITY.md) for reporting vulnerabilities.
-*   **Contributing**: See [Contribution Guidelines](CONTRIBUTING.md).
-*   **Code of Conduct**: See [Code of Conduct](CODE_OF_CONDUCT.md).
+*   **Security**: See [Security Policy](SECURITY.md).
 
 ## 🔒 Security Note
+
 This tool manages sensitive API keys.
 *   Storage is rooted at `~/.codex-accounts/`.
 *   Files are readable **only by the user** (0600).
 *   Avoid running as root.
 
 ## 📄 License
+
 This project is licensed under the [MIT License](LICENSE).
