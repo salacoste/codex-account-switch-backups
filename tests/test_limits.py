@@ -47,17 +47,25 @@ def test_limits_command_show_json():
                 "limit_weekly": {"used": 50, "limit": 500}
             })
             
-            # Use root_app invocation
-            result = runner.invoke(root_app, ["limits", "show", "--json"], obj=mock_output)
-            
-            print("STDOUT:", result.stdout)
-            print("EXIT CODE:", result.exit_code)
-            
-            assert result.exit_code == 0, f"Command failed with code {result.exit_code}. Output: {result.stdout}"
-            # Verify print_json was called
-            mock_output.print_json.assert_called_once()
-            args, _ = mock_output.print_json.call_args
-            assert args[0]["limit_5h"]["used"] == 10
+            # Mock Path within the command execution scope
+            with patch("codex_account_manager.commands.limits.Path") as MockPath:
+                # Setup mock path behavior
+                mock_path_obj = MockPath.home.return_value / ".codex-accounts" / "usage_cache.json"
+                mock_path_obj.exists.return_value = False
+                MockPath.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_path_obj
+
+                # Use root_app invocation
+                result = runner.invoke(root_app, ["limits", "show", "--json"], obj=mock_output)
+                
+                print("STDOUT:", result.stdout)
+                print("EXIT CODE:", result.exit_code)
+                print("EXCEPTION:", result.exception) 
+                
+                assert result.exit_code == 0, f"Command failed with code {result.exit_code}. Output: {result.stdout}"
+                # Verify print_json was called
+                mock_output.print_json.assert_called_once()
+                args, _ = mock_output.print_json.call_args
+                assert args[0]["limit_5h"]["used"] == 10
 
 def test_limits_command_show_table():
     """Test CLI output in Table mode."""
@@ -88,7 +96,12 @@ def test_limits_command_show_table():
                 "limit_weekly": {"used": 50, "limit": 500}
             })
             
-             result = runner.invoke(root_app, ["limits", "show"], obj=mock_output)
-             print("STDOUT TABLE:", result.stdout)
-             assert result.exit_code == 0, f"Command failed. Output: {result.stdout}"
-             mock_output.console.print.assert_called()
+             with patch("codex_account_manager.commands.limits.Path") as MockPath:
+                 mock_path_obj = MockPath.home.return_value / ".codex-accounts" / "usage_cache.json"
+                 mock_path_obj.exists.return_value = False
+                 MockPath.home.return_value.__truediv__.return_value.__truediv__.return_value = mock_path_obj
+
+                 result = runner.invoke(root_app, ["limits", "show"], obj=mock_output)
+                 print("STDOUT TABLE:", result.stdout)
+                 assert result.exit_code == 0, f"Command failed. Output: {result.stdout}"
+                 mock_output.console.print.assert_called()

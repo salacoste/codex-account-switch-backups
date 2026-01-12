@@ -44,3 +44,5 @@ jobs:
       
     - name: Run Tests (Pytest)
       run: poetry run pytest
+      env:
+        COLUMNS: "200"

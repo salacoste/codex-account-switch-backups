@@ -1,5 +1,8 @@
 import typer
 import asyncio
+import json
+import time
+from pathlib import Path
 from rich.table import Table
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.core.output import OutputManager
@@ -47,10 +50,6 @@ def show_limits(
             limits = asyncio.run(api.get_usage_limits())
             # Save to Cache
             try:
-                import json
-                import time
-                from pathlib import Path
-                
                 cache_file = Path.home() / ".codex-accounts" / "usage_cache.json"
                 cache_data = {}
                 if cache_file.exists():
