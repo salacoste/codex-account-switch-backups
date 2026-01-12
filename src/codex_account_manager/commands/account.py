@@ -401,6 +401,9 @@ def list_accounts(
         data = [a.model_dump(mode='json', exclude_none=True) for a in accounts]
         if not show_secrets:
             for d in data:
+                d['api_key'] = '********'
+                if d.get('tokens'):
+                    d['tokens'] = {k: '********' for k in d['tokens']}
         output.print_json(data)
         return
         
