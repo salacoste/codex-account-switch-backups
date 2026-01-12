@@ -2,7 +2,7 @@ import sys
 import typer
 from codex_account_manager.core.output import OutputManager
 from codex_account_manager.core.exceptions import CodexError
-from codex_account_manager.commands import account, context, migrate, tui, hook, portability, sync, run, env, team, local_context, audit
+from codex_account_manager.commands import account, context, migrate, tui, hook, portability, sync, run, env, team, local_context, audit, limits
 
 # Initialize app with rich help
 app = typer.Typer(
@@ -48,13 +48,20 @@ app.command(name="list", help="List all accounts")(account.list_accounts)
 app.command(name="remove", help="Remove an account")(account.remove)
 app.command(name="encrypt-all", help="Encrypt all accounts")(account.encrypt_all)
 
+# Register Device Flow commands (Frontend Bridge)
+app.command(name="device-login-init", help="[Internal] Init Device Flow")(account.device_login_init)
+app.command(name="device-login-poll", help="[Internal] Poll Device Flow")(account.device_login_poll)
+
+# Register Interactive Login
+app.command(name="login", help="Interactive login menu")(account.login)
+
 # Register context commands at root level (UX decision: codex-account switch vs codex-account context switch)
 app.command(name="switch", help="Switch active account")(context.switch)
 app.command(name="status", help="Show current active account")(context.status)
 app.command(name="whoami", help="Alias for status")(context.status)
 
 # Register migration command
-app.command(name="migrate", help="Import accounts from legacy old-project")(migrate.migrate_cmd)
+app.add_typer(migrate.app, name="migrate", help="Import from legacy v2")
 
 # Register TUI commands
 app.command(name="tui", help="Interactive account browser")(tui.tui_cmd)
@@ -67,6 +74,9 @@ app.command(name="hook", help="Detect .codex-account context")(hook.hook_cmd)
 # Register Portability commands
 app.command(name="export", help="Backup accounts to zip")(portability.export)
 app.command(name="import", help="Restore accounts from zip")(portability.import_cmd)
+
+# Register Limits commands
+app.add_typer(limits.app, name="limits", help="Examine API usage limits")
 
 @app.callback()
 def main_callback(
