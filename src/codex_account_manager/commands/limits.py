@@ -39,12 +39,43 @@ def show_limits(
              output.error("Active account has no valid credentials.")
              raise typer.Exit(code=1)
              
-        # Fetch Logic (TODO: Implementing Caching later, for now direct fetch)
+        # Fetch Logic
         api = CodexAPI(token)
         
         # Async run
         try:
             limits = asyncio.run(api.get_usage_limits())
+            # Save to Cache
+            try:
+                import json
+                import time
+                from pathlib import Path
+                
+                cache_file = Path.home() / ".codex-accounts" / "usage_cache.json"
+                cache_data = {}
+                if cache_file.exists():
+                    try:
+                        cache_data = json.loads(cache_file.read_text())
+                    except:
+                        pass # Reset if corrupt
+                
+                # Update specific account
+                cache_data[active_slug] = {
+                    "limits": limits,
+                    "timestamp": time.time(),
+                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                }
+                
+                # Atomic write
+                temp_file = cache_file.with_suffix(".tmp")
+                temp_file.write_text(json.dumps(cache_data, indent=2))
+                temp_file.rename(cache_file)
+                
+            except Exception as e:
+                # Cache failure should not break the command
+                if output.verbose:
+                    output.warn(f"Failed to update usage cache: {e}")
+                    
         except Exception as e:
             output.error(f"Failed to fetch limits: {e}")
             raise typer.Exit(code=1)
@@ -59,6 +90,7 @@ def show_limits(
         table.add_column("Used", justify="right")
         table.add_column("Limit", justify="right")
         table.add_column("Usage %", justify="right")
+        table.add_column("Resets In", style="dim")
         
         # 5 Hour
         l5 = limits.get("limit_5h", {})
@@ -66,12 +98,14 @@ def show_limits(
         max_5 = l5.get("limit", 1)
         pct_5 = (used_5 / max_5) * 100
         style_5 = "green" if pct_5 < 80 else "yellow" if pct_5 < 95 else "red"
+        reset_5 = f"{l5.get('reset_in_minutes', 0)}m"
         
         table.add_row(
             "5-Hour", 
             str(used_5), 
             str(max_5), 
-            f"[{style_5}]{pct_5:.1f}%[/{style_5}]"
+            f"[{style_5}]{pct_5:.1f}%[/{style_5}]",
+            reset_5
         )
 
         # Weekly
@@ -80,12 +114,14 @@ def show_limits(
         max_w = lw.get("limit", 1)
         pct_w = (used_w / max_w) * 100
         style_w = "green" if pct_w < 80 else "yellow" if pct_w < 95 else "red"
+        reset_w = f"{lw.get('reset_in_days', 0)}d"
 
         table.add_row(
             "Weekly",
             str(used_w),
             str(max_w),
-            f"[{style_w}]{pct_w:.1f}%[/{style_w}]"
+            f"[{style_w}]{pct_w:.1f}%[/{style_w}]",
+            reset_w
         )
         
         output.console.print(table)

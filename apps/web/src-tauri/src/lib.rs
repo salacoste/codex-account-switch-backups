@@ -1,12 +1,12 @@
 use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
-use std::time::Duration;
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, Submenu},
-    tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
+    menu::{CheckMenuItem, Menu, MenuItem},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, Runtime,
 };
 
@@ -15,9 +15,15 @@ struct Config {
     active_account: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+struct CacheEntry {
+    limits: serde_json::Value, // We just need to parse usage
+}
+
 struct AppState {
     active_account: Option<String>,
     accounts: Vec<String>,
+    usage_cache: HashMap<String, CacheEntry>,
 }
 
 fn load_state() -> AppState {
@@ -49,9 +55,19 @@ fn load_state() -> AppState {
     }
     accounts.sort();
 
+    // 3. Load Usage Cache
+    let cache_path = root.join("usage_cache.json");
+    let mut usage_cache = HashMap::new();
+    if let Ok(content) = fs::read_to_string(&cache_path) {
+        if let Ok(parsed) = serde_json::from_str::<HashMap<String, CacheEntry>>(&content) {
+            usage_cache = parsed;
+        }
+    }
+
     AppState {
         active_account,
         accounts,
+        usage_cache,
     }
 }
 
@@ -82,8 +98,27 @@ fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 
         for name in state.accounts {
             let is_active = name == active;
+            let mut label = name.clone();
+
+            // Format Usage Stats
+            if let Some(entry) = state.usage_cache.get(&name) {
+                // Parse safely using serde_json::Value
+                let l5 = &entry.limits["limit_5h"];
+                let lw = &entry.limits["limit_weekly"];
+
+                let u5 = l5["used"].as_f64().unwrap_or(0.0);
+                let m5 = l5["limit"].as_f64().unwrap_or(1.0);
+                let p5 = (u5 / m5) * 100.0;
+
+                let uw = lw["used"].as_f64().unwrap_or(0.0);
+                let mw = lw["limit"].as_f64().unwrap_or(1.0);
+                let pw = (uw / mw) * 100.0;
+
+                label = format!("{} [5h: {:.0}% / W: {:.0}%]", name, p5, pw);
+            }
+
             let id = format!("switch:{}", name);
-            let item = CheckMenuItem::with_id(app, &id, &name, true, is_active, None::<&str>)?;
+            let item = CheckMenuItem::with_id(app, &id, &label, true, is_active, None::<&str>)?;
             item.set_checked(is_active)?;
             menu.append(&item)?;
         }
@@ -111,9 +146,10 @@ fn update_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 fn start_watcher<R: Runtime>(app: AppHandle<R>) {
     std::thread::spawn(move || {
         let home = env::var("HOME").unwrap_or_default();
-        let config_path = PathBuf::from(home)
-            .join(".codex-accounts")
-            .join("config.json");
+        let root = PathBuf::from(home).join(".codex-accounts");
+
+        // Watch root dir to catch multiple files (config.json AND usage_cache.json)
+        let watch_target = root;
 
         // Channel to receive events
         let (tx, rx) = channel();
@@ -127,10 +163,9 @@ fn start_watcher<R: Runtime>(app: AppHandle<R>) {
                 return;
             };
 
-        // Watch the file (or parent dir if file doesn't exist yet, but app ensures it exists)
-        // We watch the FILE itself.
-        if let Err(e) = watcher.watch(&config_path, RecursiveMode::NonRecursive) {
-            eprintln!("Failed to watch config: {:?}", e);
+        // Watch directory recursively (simpler to just catch all)
+        if let Err(e) = watcher.watch(&watch_target, RecursiveMode::NonRecursive) {
+            eprintln!("Failed to watch config dir: {:?}", e);
             return;
         }
 
@@ -138,15 +173,27 @@ fn start_watcher<R: Runtime>(app: AppHandle<R>) {
             match rx.recv() {
                 Ok(Ok(event)) => {
                     // Check if it's a write or modify
-                    // notify 6.0 events can be complex, but any event on this file is worth a reload
                     if event.kind.is_modify() || event.kind.is_create() {
-                        let app_clone = app.clone();
-                        let app_for_closure = app_clone.clone();
-                        // Debounce slightly or just run?
-                        // Run on main thread to update tray
-                        let _ = app_clone.run_on_main_thread(move || {
-                            let _ = update_tray(&app_for_closure);
+                        // Check path
+                        let should_update = event.paths.iter().any(|p| {
+                            if let Some(name) = p.file_name() {
+                                name == "config.json"
+                                    || name == "usage_cache.json"
+                                    || name == "accounts"
+                            } else {
+                                false
+                            }
                         });
+
+                        if should_update {
+                            let app_clone = app.clone();
+                            let app_for_closure = app_clone.clone();
+                            // Debounce slightly or just run?
+                            // Run on main thread to update tray
+                            let _ = app_clone.run_on_main_thread(move || {
+                                let _ = update_tray(&app_for_closure);
+                            });
+                        }
                     }
                 }
                 Ok(Err(e)) => eprintln!("Watch error: {:?}", e),
@@ -188,6 +235,8 @@ pub fn run() {
                         }
                     } else if id.starts_with("switch:") {
                         let account_name = id.trim_start_matches("switch:");
+                        // Strip usage info if present (unlikely if loop passes clean name to id)
+                        // Wait, build_tray_menu makes id="switch:{name}" (clean name).
                         let _ = app.emit("tray-switch-account", account_name);
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();

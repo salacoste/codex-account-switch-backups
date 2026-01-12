@@ -47,23 +47,20 @@ export function UsageCard({ limits, loading }: UsageCardProps) {
 
         return (
             <div className="space-y-1">
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-xs items-end">
                     <span className="font-medium text-muted-foreground">{label}</span>
-                    <span className="text-foreground">{data.used} / {data.limit}</span>
+                    <div className="text-right">
+                        <span className="text-foreground block">{data.used} / {data.limit} ({pct.toFixed(0)}%)</span>
+                    </div>
                 </div>
-                <TooltipProvider>
-                    <Tooltip delayDuration={300}>
-                        <TooltipTrigger asChild>
-                            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden cursor-help">
-                                <div className={`h-full ${colorClass} transition-all duration-500`} style={{ width: `${pct}%` }} />
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{pct.toFixed(1)}% Used</p>
-                            <p className="text-xs text-muted-foreground">{resetText}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                <div className="relative pt-1">
+                    <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div className={`h-full ${colorClass} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                    </div>
+                </div>
+                <div className="flex justify-end">
+                    <span className="text-[10px] text-muted-foreground">{resetText}</span>
+                </div>
             </div>
         )
     };

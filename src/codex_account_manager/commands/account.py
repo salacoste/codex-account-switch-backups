@@ -401,17 +401,25 @@ def list_accounts(
         data = [a.model_dump(mode='json', exclude_none=True) for a in accounts]
         if not show_secrets:
             for d in data:
-                d['api_key'] = '********'
-                if d.get('tokens'):
-                    d['tokens'] = {k: '********' for k in d['tokens']}
         output.print_json(data)
         return
+        
+    # Load Usage Cache
+    usage_cache = {}
+    try:
+        cache_file = Path.home() / ".codex-accounts" / "usage_cache.json"
+        if cache_file.exists():
+            with open(cache_file, "r") as f:
+                usage_cache = json.load(f)
+    except Exception:
+        pass # Ignore cache errors
 
     # Rich Table Output
     table = Table(title="Codex Accounts")
     table.add_column("Active", justify="center", style="bold green")
     table.add_column("Name", style="cyan")
     table.add_column("Type", style="yellow")
+    table.add_column("Usage (5h/W)", style="blue")
     table.add_column("Tags", style="magenta")
     table.add_column("Email")
     table.add_column("Created")
@@ -426,6 +434,24 @@ def list_accounts(
     for acc in accounts:
         is_active = "✓" if acc.name == active_slug else ""
         tags_str = ", ".join(acc.tags) if acc.tags else ""
+        
+        # Usage Formatting
+        usage_str = "-"
+        if acc.name in usage_cache:
+            try:
+                limits = usage_cache[acc.name].get("limits", {})
+                
+                # 5H
+                l5 = limits.get("limit_5h", {})
+                p5 = (l5.get("used", 0) / l5.get("limit", 1)) * 100
+                
+                # Weekly
+                lw = limits.get("limit_weekly", {})
+                pw = (lw.get("used", 0) / lw.get("limit", 1)) * 100
+                
+                usage_str = f"5h: {p5:.0f}% / W: {pw:.0f}%"
+            except:
+                usage_str = "Error"
         
         # Determine Credential display
         credential_display = ""
@@ -446,6 +472,7 @@ def list_accounts(
             is_active, 
             acc.name, 
             acc.type.value if hasattr(acc, 'type') else "api_key",
+            usage_str,
             tags_str, 
             acc.email or "", 
             acc.created_at.strftime("%Y-%m-%d")
