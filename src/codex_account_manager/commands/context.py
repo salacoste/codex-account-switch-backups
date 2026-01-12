@@ -43,14 +43,14 @@ def status(ctx: typer.Context):
     output: OutputManager = ctx.obj
     mgr = ConfigManager()
     
+    # Check for JSON flag from parent context (main callback)
+    is_json = False
+    if ctx.parent and ctx.parent.params:
+        is_json = ctx.parent.params.get("json_output", False)
+    
     try:
         config = mgr.load_config()
         slug = config.active_account
-        
-        # Check for JSON flag from parent context (main callback)
-        is_json = False
-        if ctx.parent and ctx.parent.params:
-            is_json = ctx.parent.params.get("json_output", False)
 
         if slug:
             if is_json:

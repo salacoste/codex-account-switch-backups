@@ -1,8 +1,6 @@
 import typer
 import asyncio
-import json
 from rich.table import Table
-from rich.console import Console
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.core.output import OutputManager
 from codex_account_manager.core.codex_api import CodexAPI

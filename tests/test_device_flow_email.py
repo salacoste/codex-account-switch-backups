@@ -1,7 +1,7 @@
 import json
 from typer.testing import CliRunner
 from codex_account_manager.main import app
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 runner = CliRunner()
 
@@ -59,7 +59,6 @@ def test_device_login_poll_handles_email_failure():
         }
         
         # Simulate fetch failure
-        from codex_account_manager.core.exceptions import CodexError
         mock_auth.get_user_info.side_effect = Exception("Network Error")
         
         result = runner.invoke(app, ["device-login-poll", "code"])

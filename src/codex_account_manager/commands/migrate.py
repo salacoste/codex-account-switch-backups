@@ -41,7 +41,7 @@ def import_credentials(
     
     # Check if account already exists
     try:
-        existing = mgr.get_account(name)
+        mgr.get_account(name)
         print(f"[yellow]Warning: Account '{name}' already exists in secure storage.[/yellow]")
         if not typer.confirm("Overwrite?"):
             print("Aborted.")

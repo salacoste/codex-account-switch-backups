@@ -214,6 +214,8 @@ def test_status_codex_error(mock_config):
         
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 1
+        result = runner.invoke(app, ["status"])
+        assert result.exit_code == 1
         assert "StatusFail" in f"{result.stdout} {result.stderr}"
 
 

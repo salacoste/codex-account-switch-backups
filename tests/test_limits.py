@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 from unittest.mock import MagicMock, patch, AsyncMock
 from codex_account_manager.core.codex_api import CodexAPI
 from codex_account_manager.commands.limits import app

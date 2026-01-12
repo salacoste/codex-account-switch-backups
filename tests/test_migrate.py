@@ -1,180 +1,79 @@
-from typer.testing import CliRunner
+
+import json
+import pytest
 from unittest.mock import patch
-from codex_account_manager.main import app
-from codex_account_manager.config.models import Account
-from codex_account_manager.core.exceptions import AccountNotFoundError, CodexError
+from typer.testing import CliRunner
+from typer import Typer
+
+# Import the specific module where the app is defined
+from codex_account_manager.commands import migrate
+from codex_account_manager.config.models import AccountType
 
 runner = CliRunner()
 
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_success(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify successful migration of new accounts."""
-    # Create valid source dir
-    source = tmp_path / "legacy_source"
-    source.mkdir()
+@pytest.fixture
+def mock_root_app():
+    """Create a root app that mounts the migrate command."""
+    root = Typer()
+    root.add_typer(migrate.app, name="migrate")
+    return root
 
-    # Setup mocks
-    mgr_instance = MockMgr.return_value
-    mgr_instance.get_account.side_effect = AccountNotFoundError("new") # Does not exist
+def test_import_success(tmp_path, mock_root_app):
+    """Test successful import of legacy credentials."""
     
-    ingest_instance = MockIngest.return_value
-    ingest_instance.scan.return_value = [
-        Account(name="migrated-acc", email="m@test.com", api_key="sk-m")
-    ]
+    # 1. Setup Mock Legacy File
+    legacy_dir = tmp_path / ".codex"
+    legacy_dir.mkdir()
+    auth_file = legacy_dir / "auth.json"
     
-    # Run
-    result = runner.invoke(app, ["migrate", "--from", str(source)])
+    auth_data = {
+        "api_key": "sk-legacy-123",
+        "email": "old@example.com",
+        "access_token": "ey123",
+        "random_field": "preserved"
+    }
+    auth_file.write_text(json.dumps(auth_data))
     
-    combined = f"{result.stdout} {result.stderr or ''}"
-    assert result.exit_code == 0
-    assert "Imported 'migrated-acc'" in combined
-    assert "Migration complete" in combined
-    
-    # Verify save called
-    mgr_instance.save_account.assert_called_once()
-    saved_acc = mgr_instance.save_account.call_args[0][0]
-    assert saved_acc.name == "migrated-acc"
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_skip_duplicate(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify duplicates are skipped by default."""
-    source = tmp_path / "legacy_source"
-    source.mkdir()
-
-    mgr_instance = MockMgr.return_value
-    # account exists
-    mgr_instance.get_account.return_value = Account(name="dup", email="d", api_key="k")
-    
-    ingest_instance = MockIngest.return_value
-    ingest_instance.scan.return_value = [
-        Account(name="dup", email="migrating@test.com", api_key="sk-new")
-    ]
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source)])
-    
-    combined = f"{result.stdout} {result.stderr or ''}"
-    assert result.exit_code == 0
-    assert "Skipping 'dup'" in combined
-    
-    # Save NOT called
-    mgr_instance.save_account.assert_not_called()
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_force_overwrite(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify duplicates overwritten with --force."""
-    source = tmp_path / "legacy_source"
-    source.mkdir()
-
-    mgr_instance = MockMgr.return_value
-    mgr_instance.get_account.return_value = Account(name="dup", email="old", api_key="old")
-    
-    ingest_instance = MockIngest.return_value
-    ingest_instance.scan.return_value = [
-        Account(name="dup", email="new@test.com", api_key="new")
-    ]
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source), "--force"])
-    
-    combined = f"{result.stdout} {result.stderr or ''}"
-    assert result.exit_code == 0
-    assert "Overwriting" in combined
-    assert "Imported 'dup'" in combined
-    
-    mgr_instance.save_account.assert_called_once()
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_dry_run(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify dry run saves nothing."""
-    source = tmp_path / "legacy_source"
-    source.mkdir()
-
-    mgr_instance = MockMgr.return_value
-    mgr_instance.get_account.side_effect = AccountNotFoundError("new")
-    
-    ingest_instance = MockIngest.return_value
-    ingest_instance.scan.return_value = [
-        Account(name="dry check", email="d", api_key="k")
-    ]
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source), "--dry-run"])
-    
-    combined = f"{result.stdout} {result.stderr or ''}"
-    assert result.exit_code == 0
-    assert "Dry Run" in combined
-    
-    mgr_instance.save_account.assert_not_called()
-
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_default_path(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify default source path."""
-    with patch("pathlib.Path.cwd", return_value=tmp_path):
-        # We need mock scan to fail or succeed, but not crash on path existence?
-        # Default path is tmp_path / "old-project"
-        expected = tmp_path / "old-project"
-        expected.mkdir()
+    # 2. Mock ConfigManager
+    with patch("codex_account_manager.commands.migrate.ConfigManager") as MockConfig:
+        mgr = MockConfig.return_value
+        # Account doesn't exist
+        mgr.get_account.side_effect = Exception("Not found") 
         
-        MockIngest.return_value.scan.return_value = []
-        
-        result = runner.invoke(app, ["migrate"])
-        assert result.exit_code == 0
-        combined = f"{result.stdout} {result.stderr or ''}"
-        assert "Scanning" in combined
-        MockIngest.return_value.scan.assert_called_with(expected)
+        # 3. Mock LEGACY_AUTH path in the module
+        with patch("codex_account_manager.commands.migrate.LEGACY_AUTH", auth_file):
+            # Run command: codex-account migrate import --name my-legacy
+            result = runner.invoke(mock_root_app, ["migrate", "import", "--name", "my-legacy"], input="n\n") 
+            # Input "n" for "Switch to ... now?" confirmation (optional)
+            
+            print(result.stdout)
+            assert result.exit_code == 0
+            assert "Successfully imported 'my-legacy'" in result.stdout
+            
+            # Verify Save
+            mgr.save_account.assert_called_once()
+            saved_acc = mgr.save_account.call_args[0][0]
+            assert saved_acc.name == "my-legacy"
+            assert saved_acc.api_key == "sk-legacy-123"
+            assert saved_acc.tokens["access_token"] == "ey123"
+            assert saved_acc.tokens["random_field"] == "preserved"
+            assert saved_acc.type == AccountType.OAUTH
 
-def test_migrate_source_missing(tmp_path):
-    """Verify missing source error."""
-    missing = tmp_path / "ghost"
-    result = runner.invoke(app, ["migrate", "--from", str(missing)])
-    assert result.exit_code == 1
-    import re
-    output = f"{result.stdout} {result.stderr}"
-    normalized_output = re.sub(r'\s+', ' ', output)
-    assert "does not exist" in normalized_output
+def test_import_missing_file(mock_root_app, tmp_path):
+    """Test error when auth file is missing."""
+    missing_path = tmp_path / "missing.json"
+    
+    with patch("codex_account_manager.commands.migrate.LEGACY_AUTH", missing_path):
+        result = runner.invoke(mock_root_app, ["migrate", "import"])
+        assert result.exit_code == 1
+        assert "Legacy auth file not found" in result.stdout
 
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_save_error(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify save error handling."""
-    source = tmp_path / "src"
-    source.mkdir()
+def test_import_invalid_json(mock_root_app, tmp_path):
+    """Test error when JSON is corrupt."""
+    f = tmp_path / "bad.json"
+    f.write_text("{bad json")
     
-    MockMgr.return_value.scan.return_value = [] # unused
-    mgr = MockMgr.return_value
-    mgr.get_account.side_effect = AccountNotFoundError("new")
-    mgr.save_account.side_effect = CodexError("SaveFail")
-    
-    MockIngest.return_value.scan.return_value = [Account(name="a", api_key="k")]
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source)])
-    assert result.exit_code == 0 # Warning only, continues
-    assert "Failed to save 'a'" in f"{result.stdout} {result.stderr}"
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_empty_scan(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify empty scan results."""
-    source = tmp_path / "src"
-    source.mkdir()
-    MockIngest.return_value.scan.return_value = []
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source)])
-    assert result.exit_code == 0
-    assert "No accounts found" in f"{result.stdout} {result.stderr}"
-
-@patch("codex_account_manager.commands.migrate.LegacyIngestor")
-@patch("codex_account_manager.commands.migrate.ConfigManager")
-def test_migrate_scan_fatal_error(MockMgr, MockIngest, mock_config, tmp_path):
-    """Verify fatal scan error."""
-    source = tmp_path / "src"
-    source.mkdir()
-    MockIngest.return_value.scan.side_effect = CodexError("ScanFail")
-    
-    result = runner.invoke(app, ["migrate", "--from", str(source)])
-    assert result.exit_code == 1
-    assert "ScanFail" in f"{result.stdout} {result.stderr}"
+    with patch("codex_account_manager.commands.migrate.LEGACY_AUTH", f):
+        result = runner.invoke(mock_root_app, ["migrate", "import"])
+        assert result.exit_code == 1
+        assert "Failed to parse" in result.stdout

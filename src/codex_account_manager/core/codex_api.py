@@ -1,5 +1,5 @@
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from codex_account_manager.core.exceptions import CodexError
 
 class CodexAPI:
@@ -26,7 +26,7 @@ class CodexAPI:
             - limit_5h_used, limit_5h_max
             - limit_weekly_used, limit_weekly_max
         """
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient():
             try:
                 # Mocking the endpoint for now until backend is ready
                 # In real prod: response = await client.get(f"{self.BASE_URL}/api/user/limits", headers=self.headers)
