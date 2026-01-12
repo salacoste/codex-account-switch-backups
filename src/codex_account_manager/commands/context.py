@@ -17,10 +17,21 @@ def switch(
     output: OutputManager = ctx.obj
     mgr = ConfigManager()
 
+    # Check for JSON flag from parent context (main callback)
+    is_json = False
+    if ctx.parent and ctx.parent.params:
+        is_json = ctx.parent.params.get("json_output", False)
+
     try:
         mgr.switch_account(name)
-        output.success(f"Switched to account '{name}'.")
+        if is_json:
+            output.print_json({"status": "success", "active_account": name})
+        else:
+            output.success(f"Switched to account '{name}'.")
     except CodexError as e:
+        if is_json:
+            output.print_json({"status": "error", "message": e.message})
+            raise typer.Exit(code=1)
         output.error(e.message)
         raise typer.Exit(code=1)
 
@@ -36,24 +47,36 @@ def status(ctx: typer.Context):
         config = mgr.load_config()
         slug = config.active_account
         
+        # Check for JSON flag from parent context (main callback)
+        is_json = False
+        if ctx.parent and ctx.parent.params:
+            is_json = ctx.parent.params.get("json_output", False)
+
         if slug:
-            output.log(f"Active Account: [bold green]{slug}[/bold green]")
-            
-            # Integrity Check
-            health = mgr.check_active_integrity()
-            
-            if not health["exists"]:
-                output.error(f"Integrity Error: Active account '{slug}' not found in storage!")
-            elif not health["synced"]:
-                if not health["legacy_exists"]:
-                    output.warn("Warning: Legacy auth file missing. Run 'switch' to fix.")
-                else:
-                    output.warn("Warning: Legacy auth file is out of sync. Run 'switch' to fix.")
+            if is_json:
+                output.print_json({"active_account": slug, "status": "active"})
             else:
-                output.success("Account is synced and ready.")
-                
+                output.log(f"Active Account: [bold green]{slug}[/bold green]")
+                # Integrity Check
+                health = mgr.check_active_integrity()
+                if not health["exists"]:
+                    output.error(f"Integrity Error: Active account '{slug}' not found in storage!")
+                elif not health["synced"]:
+                    if not health["legacy_exists"]:
+                        output.warn("Warning: Legacy auth file missing. Run 'switch' to fix.")
+                    else:
+                        output.warn("Warning: Legacy auth file is out of sync. Run 'switch' to fix.")
+                else:
+                    output.success("Account is synced and ready.")
         else:
-            output.warn("No active account selected.")
+            if is_json:
+                output.print_json({"active_account": None, "status": "none"})
+            else:
+                output.warn("No active account selected.")
+
     except CodexError as e:
+        if is_json:
+            output.print_json({"error": e.message})
+            raise typer.Exit(code=1)
         output.error(e.message)
         raise typer.Exit(code=1)

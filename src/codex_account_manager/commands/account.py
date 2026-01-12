@@ -13,6 +13,53 @@ from codex_account_manager.commands.auth import DeviceAuth
 
 app = typer.Typer(help="Manage Codex accounts (add, list, remove).")
 
+@app.command("device-login-init")
+def device_login_init(ctx: typer.Context):
+    """
+    [Machine-Readable] Initiate Device Flow. Outputs JSON.
+    """
+    output: OutputManager = ctx.obj
+    auth = DeviceAuth()
+    try:
+        data = auth.initiate_flow()
+        # Ensure raw JSON output for machine parsing
+        output.console.print_json(data=data)
+    except CodexError as e:
+        output.error(str(e))
+        raise typer.Exit(code=1)
+
+@app.command("device-login-poll")
+def device_login_poll(
+    ctx: typer.Context, 
+    device_code: str = typer.Argument(..., help="Device code from init")
+):
+    """
+    [Machine-Readable] Check status of Device Flow. Outputs JSON.
+    """
+    output: OutputManager = ctx.obj
+    auth = DeviceAuth()
+    try:
+        # We use check_token for a single non-blocking check
+        result = auth.check_token(device_code)
+        
+        # If success, fetch user info to get email
+        if result.get("status") == "success":
+            try:
+                access_token = result["tokens"]["access_token"]
+                user_info = auth.get_user_info(access_token)
+                email = user_info.get("email")
+                if email:
+                    result["email"] = email
+            except Exception as e:
+                # Non-fatal, just don't include email
+                output.log(f"Failed to fetch user info: {e}", style="dim")
+                
+        output.print_json(data=result)
+    except CodexError as e:
+        # Return error as JSON too so frontend can handle it gracefully
+        output.print_json(data={"status": "error", "message": str(e)})
+        raise typer.Exit(code=1)
+
 @app.command("login")
 def login(ctx: typer.Context):
     """
@@ -167,6 +214,7 @@ def add(
     name: str = typer.Argument(None, help="Unique name for the account (slug)"),
     email: str = typer.Option(None, help="Email address"),
     api_key: str = typer.Option(None, help="Codex API Key"),
+    tokens_json: str = typer.Option(None, "--tokens-json", help="JSON string of OAuth tokens"),
     tags: Optional[List[str]] = typer.Option(None, "--tag", "-t", help="Tags for categorization"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing account"),
 ):
@@ -193,11 +241,21 @@ def add(
     except CodexError:
         pass # Good, doesn't exist
 
+    # Parse JSON Glob
+    tokens_dict = None
+    if tokens_json:
+        try:
+            tokens_dict = json.loads(tokens_json)
+        except json.JSONDecodeError:
+            output.error("Invalid JSON provided for --tokens-json")
+            raise typer.Exit(code=1)
+
     if not email:
         email = typer.prompt("Email")
         is_interactive = True
     
-    if not api_key:
+    if not api_key and not tokens_dict:
+        # Prompt for API Key only if no tokens provided
         api_key = typer.prompt("API Key", hide_input=True)
         is_interactive = True
 
@@ -212,7 +270,15 @@ def add(
         tags = []
 
     # Create & Save
-    account = Account(name=name, email=email, api_key=api_key, tags=tags)
+    type_ = AccountType.OAUTH if tokens_dict else AccountType.API_KEY
+    account = Account(
+        name=name, 
+        email=email, 
+        api_key=api_key, 
+        tokens=tokens_dict,
+        type=type_,
+        tags=tags
+    )
     try:
         mgr.save_account(account)
         output.success(f"Account '{account.name}' added successfully.")

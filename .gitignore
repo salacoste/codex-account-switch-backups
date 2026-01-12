@@ -9,3 +9,7 @@ htmlcov/
 env/
 venv/
 .DS_Store
+build/
+_bmad-output/
+*.spec
+src-tauri/target/

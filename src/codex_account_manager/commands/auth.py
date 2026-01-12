@@ -36,9 +36,14 @@ class DeviceAuth:
         except httpx.HTTPError as e:
             raise CodexError(f"Failed to initiate authentication: {e}")
 
-    def poll_for_token(self, device_code: str, interval: int = 5) -> Dict[str, Any]:
+    def check_token(self, device_code: str) -> Dict[str, Any]:
         """
-        Step 2: Poll for the access token until user approves or code expires.
+        Single check for token status.
+        Returns: 
+            - {"status": "success", "tokens": {...}}
+            - {"status": "pending"} 
+            - {"status": "slow_down", "interval_increment": 5}
+            - Raises CodexError on fatal errors.
         """
         payload = {
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -46,32 +51,58 @@ class DeviceAuth:
             "client_id": self.client_id,
         }
 
+        try:
+            resp = self.http.post(TOKEN_URL, data=payload, headers=DEFAULT_HEADERS)
+            data = resp.json()
+
+            if resp.status_code == 200:
+                return {"status": "success", "tokens": data}
+
+            error = data.get("error")
+            if error == "authorization_pending":
+                return {"status": "pending"}
+            elif error == "slow_down":
+                return {"status": "slow_down", "interval_increment": 5}
+            elif error == "expired_token":
+                raise CodexError("Authentication timed out. Please try again.")
+            elif error == "access_denied":
+                raise CodexError("Authentication denied by user.")
+            else:
+                raise CodexError(f"Authentication failed: {error}")
+
+        except httpx.RequestError as e:
+            # Network error, treat as pending/retryable or raise?
+            # For a single check, strictly speaking, it's an error, but let's re-raise 
+            # so the caller decides to retry.
+            raise CodexError(f"Network error during check: {e}")
+
+    def poll_for_token(self, device_code: str, interval: int = 5) -> Dict[str, Any]:
+        """
+        Step 2: Poll for the access token until user approves or code expires.
+        """
         # Polling loop
         while True:
             try:
-                resp = self.http.post(TOKEN_URL, data=payload, headers=DEFAULT_HEADERS)
-                data = resp.json()
-
-                if resp.status_code == 200:
-                    return data # Success!
-
-                error = data.get("error")
-                if error == "authorization_pending":
-                    pass # Keep waiting
-                elif error == "slow_down":
-                    interval += 5 # OAUTH spec says increase interval
-                elif error == "expired_token":
-                    raise CodexError("Authentication timed out. Please try again.")
-                elif error == "access_denied":
-                    raise CodexError("Authentication denied by user.")
-                else:
-                    raise CodexError(f"Authentication failed: {error}")
-
-            except httpx.RequestError:
-                # Network glitch? Wait and retry
-                pass
-
-            time.sleep(interval)
+                result = self.check_token(device_code)
+                status = result["status"]
+                
+                if status == "success":
+                    return result["tokens"]
+                elif status == "slow_down":
+                    interval += result.get("interval_increment", 5)
+                
+                # If pending or slow_down, wait
+                time.sleep(interval)
+                
+            except CodexError as e:
+                # Decide if fatal. 
+                # 'Authentication timed out' -> Fatal (raised in check_token)
+                # 'Network' -> maybe retry? check_token raises CodexError on network.
+                # Compatibility with old behavior:
+                if "Network error" in str(e):
+                    time.sleep(interval)
+                    continue
+                raise e
 
     def get_user_info(self, access_token: str) -> Dict[str, Any]:
         """
