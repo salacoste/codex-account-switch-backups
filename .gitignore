@@ -19,3 +19,4 @@ coverage/
 .next/
 apps/web/.next/
 apps/web/node_modules/
+apps/web/src-tauri/binaries/
