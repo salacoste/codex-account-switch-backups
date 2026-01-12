@@ -56,7 +56,7 @@ def show_limits(
                 if cache_file.exists():
                     try:
                         cache_data = json.loads(cache_file.read_text())
-                    except:
+                    except Exception:
                         pass # Reset if corrupt
                 
                 # Update specific account

@@ -453,7 +453,7 @@ def list_accounts(
                 pw = (lw.get("used", 0) / lw.get("limit", 1)) * 100
                 
                 usage_str = f"5h: {p5:.0f}% / W: {pw:.0f}%"
-            except:
+            except Exception:
                 usage_str = "Error"
         
         # Determine Credential display
