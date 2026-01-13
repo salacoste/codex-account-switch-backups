@@ -1,6 +1,4 @@
-import shutil
 import pytest
-from pathlib import Path
 from codex_account_manager.config.manager import ConfigManager
 from codex_account_manager.config.models import Account, AccountType
 
