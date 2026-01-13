@@ -12,37 +12,35 @@
 
 ---
 
-## 🛑 The Problem
+## 🛑 The Problem: Quota Chaos & Key Fatigue
 
-Modern development involves juggling dozens of API keys, tokens, and environments.
-*   **Security Risks**: Leaving API keys in `.env` files or hardcoded in scripts leads to leaks.
-*   **Context Errors**: Accidentally running a destructive command against `production` because you forgot to switch variables.
-*   **Workflow Friction**: Manually copying and pasting tokens between terminals breaks flow.
+Modern AI Development creates a new set of challenges:
+*   **Quota Limits**: You have 3 different OpenAI/Codex accounts to manage 5h and Weekly limits. Hitting a limit mid-stream breaks your flow.
+*   **Context Risks**: Accidentally running a heavy "Thinking Model" task on your personal limited account instead of the corporate unlimited plan.
+*   **Security Nightmares**: Storing sensitive `sk-` keys in `.env` files scattered across projects is a leak waiting to happen.
 
 ![Chaos vs Order - The Problem vs The Solution](docs/assets/chaos_vs_order.png)
 
 ## ✅ The Solution
 
-**Codex Account Manager** is your secure, encrypted vault for professional identity management. It separates your credentials from your code, handles the complexity of secure storage, and injects authentication exactly where it's needed—on demand.
+**Codex Account Manager** is your unified command center for AI credentials. It treats your identities as **Profiles**, not just text strings.
 
 ### Why Codex Account Manager?
 
+🧠 **Intelligent Quota Management**  
+Never hit a rate limit blindly again. The system tracks your **5-Hour** and **Weekly** usage for every account in real-time. Know exactly which account has capacity *before* you switch.
+
+⚡ **Instant Context Switching**  
+Switch from "Personal (Limited)" to "Work (Pro)" in one keystroke. The CLI instantly injects the correct credentials into your environment, ensuring zero downtime when one account hits its cap.
+
+🖥️ **Native macOS Experience**  
+**Always there, never in the way.** Our native System Tray application sits quietly in your menu bar. 
+*   **Glanceable Status**: See your active account and usage usage bars directly in the menu.
+*   **One-Click Switch**: Change identities without touching the terminal.
+*   **Global Hotkey**: Bring up the dashboard instantly.
+
 🛡️ **Military-Grade Security**  
-Your credentials are never stored in plaintext. We use **AES-256 encryption** with industry-standard key derivation. Files are strictly permission-locked (`chmod 600`), ensuring only *you* have access.
-
-⚡ **Lightning-Fast Context Switching**  
-Switching from "Personal Dev" to "Corporate Prod" takes one command. The CLI instantly updates your authentication context, so every subsequent tool uses the correct identity.
-
-🧠 **Smart & Context Aware**  
-Stop guessing "Am I in prod?". Link directories to specific accounts. When you `cd` into your work project, the manager automatically switches your identity for you.
-
-🤝 **Built for Teams**  
-Securely share credentials with your team without using insecure channels like Slack or Email. Synchronize encrypted vaults via private Git repositories.
-
-📊 **Usage Tracking & Quotas**  
-Stay on top of your consumption. The CLI tracks your API usage against 5h and Weekly limits, displaying progress bars so you never hit a rate limit unexpectedly.
-
-![Codex Account Manager Terminal UI](docs/assets/cli_tui.png)
+Your credentials are never stored in plaintext. We use **AES-256 encryption** strictly permission-locked (`chmod 600`), ensuring only *you* have access.
 
 ---
 
@@ -50,9 +48,11 @@ Stay on top of your consumption. The CLI tracks your API usage against 5h and We
 
 *   **Universal Proxy**: Inject credentials into any command (`codex-account run -- python script.py`) without polluting your global environment.
 *   **Audit Logging**: Every access is logged locally. Know exactly when and which key was used.
-*   **Legacy Migration**: Effortlessly import accounts from older project structures or backups.
+*   **Legacy Migration**: Effortlessly import accounts from older project structures.
 *   **Terminal UI**: Forget the names? Browse your vault with a beautiful interactive TUI.
 *   **Git Sync**: Keep your encrypted vault synchronized across all your devices using any private Git repo.
+
+![Codex Account Manager Terminal UI](docs/assets/cli_tui.png)
 
 ---
 
@@ -107,7 +107,6 @@ codex-account list
 ```bash
 poetry run pytest
 ```
-*   `tests/`: Comprehensive Pytest suite covering security, functionality, and migration.
 
 ## 🤝 Community & Support
 
