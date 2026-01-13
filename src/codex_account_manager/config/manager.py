@@ -205,6 +205,29 @@ class ConfigManager:
         """Alias for remove_account (Legacy compatibility)."""
         self.remove_account(name)
 
+    def _restore_target_session(self, target_account: Account, vault_slug: str):
+        """Restores sessions from storage to ~/.codex/sessions."""
+        legacy_auth_file = self._get_legacy_auth_file()
+        live_sessions_dir = legacy_auth_file.parent / "sessions"
+        
+        # Ensure it's clean (should be clean from shelving, but just in case)
+        if live_sessions_dir.exists():
+            shutil.rmtree(live_sessions_dir)
+            
+        # Derive canonical key for retrieval
+        if vault_slug == "personal":
+            storage_key = target_account.name
+        else:
+            storage_key = f"{vault_slug}/{target_account.name}"
+            
+        storage_dir = self._get_session_storage_dir(storage_key)
+        
+        if storage_dir.exists():
+             shutil.copytree(storage_dir, live_sessions_dir)
+        else:
+            # If no stored session, just ensure the dir exists empty
+            live_sessions_dir.mkdir(parents=True, exist_ok=True)
+
     def switch_account(self, name: str):
         """Switches active account. Validates existence first."""
         # 1. Validate & Normalize
@@ -216,8 +239,14 @@ class ConfigManager:
         # Check existence in vault (slugifies internally)
         acc = vault.get_account(acc_slug)
         
-        # 2. Sync Legacy Auth
+        # 2a. Shelve Current Session (Save state of the OLD account)
+        self._shelve_current_session()
+
+        # 2b. Sync Legacy Auth (Update credentials)
         self.sync_legacy_auth(acc)
+        
+        # 2c. Restore Target Session (Load state of the NEW account)
+        self._restore_target_session(acc, vault_slug)
         
         # 3. Update Config with Canonical Reference
         cfg = self.load_config()
@@ -230,6 +259,42 @@ class ConfigManager:
             cfg.active_account = f"{vault_slug}/{acc.name}"
             
         self.save_config(cfg)
+
+    def _get_session_storage_dir(self, account_name: str) -> Path:
+        """Returns the directory where sessions for a specific account are stored."""
+        # We store shelved sessions in the root config dir separated by account
+        return self.root / "shelved_sessions" / slugify(account_name)
+
+    def _shelve_current_session(self):
+        """Moves current ~/.codex/sessions to storage."""
+        cfg = self.load_config()
+        if not cfg.active_account:
+            return # No active account to save session for
+
+        legacy_auth_file = self._get_legacy_auth_file()
+        live_sessions_dir = legacy_auth_file.parent / "sessions"
+        
+        if not live_sessions_dir.exists():
+            return
+
+        # Identify where to save it
+        # We handle 'personal/slug' vs 'slug' normalisation via the config
+        # We just need a unique folder name.
+        storage_dir = self._get_session_storage_dir(cfg.active_account)
+        storage_dir.parent.mkdir(parents=True, exist_ok=True)
+        
+        # If storage dir exists, we merge or replace? 
+        # rmtree+copytree is safest to ensure exact mirroring of state
+        if storage_dir.exists():
+            shutil.rmtree(storage_dir)
+            
+        # Move mechanism: We copytree then rmtree orig, or move. 
+        # shutil.move can fail across filesystems, copytree is robust.
+        # But we want to LEAVE the directory empty for the next guy? No, we restore next.
+        shutil.copytree(live_sessions_dir, storage_dir)
+        
+        # Clean up the live directory to be ready for the new account (or just to leave it clean)
+        shutil.rmtree(live_sessions_dir) 
 
     def sync_legacy_auth(self, account: Account):
         """Writes credentials to ~/.codex/auth.json (Legacy Support)."""
@@ -260,11 +325,14 @@ class ConfigManager:
             f.write(json.dumps(data, indent=2))
         
         
-        # Clear sessions to prevent "Token data not available" error
-        sessions_dir = legacy_dir / "sessions"
-        if sessions_dir.exists():
-            shutil.rmtree(sessions_dir)
-            sessions_dir.mkdir()  # Recreate empty
+        # STOP DELETING SESSIONS
+        # sessions_dir = legacy_dir / "sessions"
+        # if sessions_dir.exists():
+        #     shutil.rmtree(sessions_dir)
+        #     sessions_dir.mkdir()  # Recreate empty
+        
+        # Just ensure the directory exists so Codex doesn't crash if it expects it
+        (legacy_dir / "sessions").mkdir(exist_ok=True)
         
         os.chmod(legacy_auth_file, 0o600)
 
