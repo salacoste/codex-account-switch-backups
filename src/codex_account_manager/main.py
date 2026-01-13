@@ -12,6 +12,16 @@ app = typer.Typer(
     add_completion=True,
 )
 
+def version_callback(value: bool):
+    if value:
+        import importlib.metadata
+        try:
+            version = importlib.metadata.version("codex-account-manager")
+        except importlib.metadata.PackageNotFoundError:
+            version = "unknown"
+        typer.echo(f"codex-account {version}")
+        raise typer.Exit()
+
 # ...
 
 # Register Sync commands (Grouping)
@@ -98,6 +108,13 @@ def main_callback(
         "-v",
         help="Show debug logs."
     ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit."
+    ),
 ):
     """
     Codex Account Manager - Securely switch and manage Codex authentication.
@@ -110,6 +127,26 @@ def main_callback(
     
     if verbose:
         ctx.obj.log("[dim]Debug mode enabled[/dim]", style="dim")
+
+@app.command("version")
+def version_cmd(
+    ctx: typer.Context,
+):
+    """
+    [Machine-Readable] Output version information as JSON.
+    """
+    import importlib.metadata
+    try:
+        ver = importlib.metadata.version("codex-account-manager")
+    except importlib.metadata.PackageNotFoundError:
+        ver = "unknown"
+    
+    # We use typer.echo or output manager? 
+    # Since this is for machine consumption, direct print or simple JSON is best.
+    # OutputManager isn't strictly necessary if we just want raw JSON to stdout.
+    import json
+    typer.echo(json.dumps({"version": ver, "app_name": "codex-account-manager"}))
+
 
 def main():
     try:
