@@ -8,7 +8,7 @@
 > **The Professional's Choice for Secure Multi-Account Management.**  
 > Stop juggling API keys in plaintext files. Switch identities instantly, securely, and confidently.
 
-<!-- IMAGE: hero_vault.png (See docs/design/image_prompts.md) -->
+![Codex Account Manager Vault](docs/assets/hero_vault.png)
 
 ---
 
@@ -19,7 +19,7 @@ Modern development involves juggling dozens of API keys, tokens, and environment
 *   **Context Errors**: Accidentally running a destructive command against `production` because you forgot to switch variables.
 *   **Workflow Friction**: Manually copying and pasting tokens between terminals breaks flow.
 
-<!-- IMAGE: chaos_vs_order.png (See docs/design/image_prompts.md) -->
+![Chaos vs Order - The Problem vs The Solution](docs/assets/chaos_vs_order.png)
 
 ## ✅ The Solution
 
@@ -42,7 +42,7 @@ Securely share credentials with your team without using insecure channels like S
 📊 **Usage Tracking & Quotas**  
 Stay on top of your consumption. The CLI tracks your API usage against 5h and Weekly limits, displaying progress bars so you never hit a rate limit unexpectedly.
 
-<!-- IMAGE: cli_tui.png (See docs/design/image_prompts.md) -->
+![Codex Account Manager Terminal UI](docs/assets/cli_tui.png)
 
 ---
 
